@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Fallback to hardcoded values if env vars are missing (Common in GH Actions if access is tricky)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qrkdwampnvjcervyusrp.supabase.co'
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_IjT8CLT51HzpkLZYsM4xBQ_dRaz1V9B'
+// DEBUG: Hardcoded values strictly to rule out Env Var poisoning (e.g. trailing spaces)
+const supabaseUrl = 'https://qrkdwampnvjcervyusrp.supabase.co'
+const supabaseKey = 'sb_publishable_IjT8CLT51HzpkLZYsM4xBQ_dRaz1V9B'
+
+console.log('Supabase Config:', { 
+    url: supabaseUrl, 
+    keyLength: supabaseKey?.length 
+});
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
