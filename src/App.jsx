@@ -389,9 +389,12 @@ const App = () => {
 
               {showAddService && (
                 <Card className="border-indigo-200 dark:border-indigo-900 bg-indigo-50/30">
-                  <form onSubmit={addService} className="space-y-3">
+                  <form onSubmit={addService} className="space-y-3" autoComplete="off">
                     <input 
                       type="text" 
+                      name="service_name_input"
+                      autoComplete="off"
+                      data-lpignore="true"
                       placeholder="Nombre (ej. Netflix)" 
                       className="w-full px-3 py-2 rounded-md border border-slate-300 dark:bg-slate-900"
                       value={newService.name}
@@ -399,6 +402,9 @@ const App = () => {
                     />
                     <input 
                       type="number" 
+                      name="service_cost_input"
+                      autoComplete="off"
+                      data-lpignore="true"
                       placeholder="Costo Mensual" 
                       className="w-full px-3 py-2 rounded-md border border-slate-300 dark:bg-slate-900"
                       value={newService.cost}
@@ -467,9 +473,12 @@ const App = () => {
 
               {showAddMember && (
                 <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50/30">
-                  <form onSubmit={addMember} className="space-y-3">
+                  <form onSubmit={addMember} className="space-y-3" autoComplete="off">
                     <input 
                       type="text" 
+                      name="member_name_input"
+                      autoComplete="off"
+                      data-lpignore="true"
                       placeholder="Nombre del miembro" 
                       className="w-full px-3 py-2 rounded-md border border-slate-300 dark:bg-slate-900"
                       value={newMember.name}
