@@ -98,8 +98,10 @@ const App = () => {
         .insert([{ name: newService.name, cost: Number(newService.cost), member_ids: [] }])
         .select();
 
-    if (error) console.error(error);
-    else {
+    if (error) {
+        console.error(error);
+        alert(`Error: ${error.message}`);
+    } else {
         setServices([...services, { ...data[0], memberIds: [] }]);
         setNewService({ name: '', cost: '' });
         setShowAddService(false);
@@ -108,7 +110,8 @@ const App = () => {
 
   const removeService = async (id) => {
     const { error } = await supabase.from('services').delete().eq('id', id);
-    if (!error) {
+    if (error) alert(`Error deleting: ${error.message}`);
+    else {
         setServices(services.filter(s => s.id !== id));
     }
   };
@@ -122,8 +125,10 @@ const App = () => {
         .insert([{ name: newMember.name }])
         .select();
 
-    if (error) console.error(error);
-    else {
+    if (error) {
+        console.error(error);
+        alert(`Error al guardar miembro: ${error.message}`);
+    } else {
         setMembers([...members, data[0]]);
         setNewMember({ name: '' });
         setShowAddMember(false);
@@ -132,7 +137,8 @@ const App = () => {
 
   const removeMember = async (id) => {
     const { error } = await supabase.from('members').delete().eq('id', id);
-    if (!error) {
+    if (error) alert(`Error deleting: ${error.message}`);
+    else {
         setMembers(members.filter(m => m.id !== id));
         // Recargar servicios para limpiar el ID huerfano si fuera necesario, 
         // o hacerlo localmente:
@@ -162,6 +168,7 @@ const App = () => {
 
     if (error) {
         console.error('Error updating service:', error);
+        alert(`Error actualizando servicio: ${error.message}`);
         // Revertir si hay error
         setServices(services.map(s => s.id === serviceId ? service : s));
     }
