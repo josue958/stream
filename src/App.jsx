@@ -1,0 +1,441 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Plus, 
+  Trash2, 
+  CheckCircle, 
+  XCircle, 
+  Users, 
+  Tv, 
+  DollarSign, 
+  Calendar,
+  UserPlus,
+  ArrowRight
+} from 'lucide-react';
+
+const App = () => {
+  // --- Estado Inicial ---
+  const [services, setServices] = useState([
+    { id: '1', name: 'Netflix', cost: 219, memberIds: ['m1', 'm2'] },
+    { id: '2', name: 'Disney+', cost: 179, memberIds: ['m1'] }
+  ]);
+
+  const [members, setMembers] = useState([
+    { id: 'm1', name: 'Juan Pérez' },
+    { id: 'm2', name: 'María García' }
+  ]);
+
+  const [payments, setPayments] = useState([]);
+  
+  // --- Estado de UI ---
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [showAddService, setShowAddService] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  
+  // Forms
+  const [newService, setNewService] = useState({ name: '', cost: '' });
+  const [newMember, setNewMember] = useState({ name: '' });
+
+  // --- Lógica de Cálculos ---
+  const currentMonth = new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' });
+
+  const stats = useMemo(() => {
+    const totalCost = services.reduce((acc, s) => acc + Number(s.cost), 0);
+    
+    // Calcular lo que debe cada miembro
+    const memberDebts = members.map(member => {
+      let totalDue = 0;
+      const memberServices = services.filter(s => s.memberIds.includes(member.id));
+      
+      memberServices.forEach(s => {
+        totalDue += Number(s.cost) / s.memberIds.length;
+      });
+
+      const hasPaid = payments.find(p => 
+        p.memberId === member.id && 
+        p.month === currentMonth
+      );
+
+      return {
+        ...member,
+        totalDue: totalDue.toFixed(2),
+        paid: !!hasPaid,
+        paymentDate: hasPaid?.date || null
+      };
+    });
+
+    return { totalCost, memberDebts };
+  }, [services, members, payments, currentMonth]);
+
+  // --- Acciones ---
+  const addService = (e) => {
+    e.preventDefault();
+    if (!newService.name || !newService.cost) return;
+    setServices([...services, { 
+      id: Date.now().toString(), 
+      ...newService, 
+      memberIds: [] 
+    }]);
+    setNewService({ name: '', cost: '' });
+    setShowAddService(false);
+  };
+
+  const removeService = (id) => {
+    setServices(services.filter(s => s.id !== id));
+  };
+
+  const addMember = (e) => {
+    e.preventDefault();
+    if (!newMember.name) return;
+    setMembers([...members, { id: 'm' + Date.now(), name: newMember.name }]);
+    setNewMember({ name: '' });
+    setShowAddMember(false);
+  };
+
+  const removeMember = (id) => {
+    setMembers(members.filter(m => m.id !== id));
+    setServices(services.map(s => ({
+      ...s,
+      memberIds: s.memberIds.filter(mid => mid !== id)
+    })));
+  };
+
+  const toggleMemberInService = (serviceId, memberId) => {
+    setServices(services.map(s => {
+      if (s.id === serviceId) {
+        const exists = s.memberIds.includes(memberId);
+        return {
+          ...s,
+          memberIds: exists 
+            ? s.memberIds.filter(id => id !== memberId)
+            : [...s.memberIds, memberId]
+        };
+      }
+      return s;
+    }));
+  };
+
+  const togglePayment = (memberId) => {
+    const exists = payments.find(p => p.memberId === memberId && p.month === currentMonth);
+    if (exists) {
+      setPayments(payments.filter(p => !(p.memberId === memberId && p.month === currentMonth)));
+    } else {
+      setPayments([...payments, {
+        id: Date.now().toString(),
+        memberId,
+        month: currentMonth,
+        date: new Date().toLocaleDateString('es-MX')
+      }]);
+    }
+  };
+
+  // --- Componentes de UI ---
+  const Card = ({ children, className = "" }) => (
+    <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 ${className}`}>
+      {children}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 md:p-8 font-sans">
+      <div className="max-w-5xl mx-auto">
+        
+        {/* Header */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Control de Streaming</h1>
+            <p className="text-slate-500 dark:text-slate-400">Gestiona gastos compartidos y pagos de {currentMonth}</p>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 hover:bg-slate-100'}`}
+            >
+              Resumen
+            </button>
+            <button 
+              onClick={() => setActiveTab('manage')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'manage' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 hover:bg-slate-100'}`}
+            >
+              Configurar
+            </button>
+          </div>
+        </header>
+
+        {activeTab === 'dashboard' ? (
+          <div className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-full">
+                  <DollarSign size={24} />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Costo Total</p>
+                  <p className="text-2xl font-bold">${stats.totalCost.toFixed(2)}</p>
+                </div>
+              </Card>
+              <Card className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full">
+                  <Users size={24} />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Miembros</p>
+                  <p className="text-2xl font-bold">{members.length}</p>
+                </div>
+              </Card>
+              <Card className="flex items-center gap-4">
+                <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-full">
+                  <Tv size={24} />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Servicios</p>
+                  <p className="text-2xl font-bold">{services.length}</p>
+                </div>
+              </Card>
+            </div>
+
+            {/* Payment Table */}
+            <Card>
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Calendar size={20} /> Estado de Pagos
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700">
+                      <th className="pb-3 font-medium text-slate-500">Miembro</th>
+                      <th className="pb-3 font-medium text-slate-500 text-right">Cuota Sugerida</th>
+                      <th className="pb-3 font-medium text-slate-500 text-center">Estado</th>
+                      <th className="pb-3 font-medium text-slate-500">Fecha Pago</th>
+                      <th className="pb-3 font-medium text-slate-500 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {stats.memberDebts.map(member => (
+                      <tr key={member.id} className="group">
+                        <td className="py-4 font-medium">{member.name}</td>
+                        <td className="py-4 text-right font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                          ${member.totalDue}
+                        </td>
+                        <td className="py-4">
+                          <div className="flex justify-center">
+                            {member.paid ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                <CheckCircle size={12} /> Pagado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                                <XCircle size={12} /> Pendiente
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 text-slate-500 text-sm">
+                          {member.paymentDate || '---'}
+                        </td>
+                        <td className="py-4 text-right">
+                          <button
+                            onClick={() => togglePayment(member.id)}
+                            className={`text-sm px-3 py-1 rounded-md transition-colors ${
+                              member.paid 
+                              ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20' 
+                              : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                            }`}
+                          >
+                            {member.paid ? 'Anular' : 'Marcar Pago'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {members.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-slate-500 italic">
+                          No hay miembros registrados. Ve a "Configurar" para añadir personas.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {/* Breakdown per service */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <h3 className="text-lg font-semibold mb-4">Detalle por Servicio</h3>
+                <div className="space-y-4">
+                  {services.map(s => (
+                    <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                      <div>
+                        <p className="font-medium">{s.name}</p>
+                        <p className="text-xs text-slate-500">{s.memberIds.length} miembros</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">${s.cost}</p>
+                        <p className="text-xs text-indigo-500">
+                          ${(Number(s.cost) / (s.memberIds.length || 1)).toFixed(2)} c/u
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {services.length === 0 && <p className="text-slate-500 text-sm italic">Sin servicios registrados.</p>}
+                </div>
+              </Card>
+
+              <Card>
+                <h3 className="text-lg font-semibold mb-4">Próximos Pasos</h3>
+                <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                  <li className="flex gap-2">
+                    <ArrowRight size={16} className="text-indigo-500 shrink-0" />
+                    Asegúrate de que todos los miembros estén asignados a sus respectivos servicios.
+                  </li>
+                  <li className="flex gap-2">
+                    <ArrowRight size={16} className="text-indigo-500 shrink-0" />
+                    Las cuotas se calculan dividiendo el costo del servicio entre el número de participantes del mismo.
+                  </li>
+                  <li className="flex gap-2">
+                    <ArrowRight size={16} className="text-indigo-500 shrink-0" />
+                    Puedes dar de baja servicios o miembros en la pestaña de configuración.
+                  </li>
+                </ul>
+              </Card>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Manage Services */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Tv size={20} /> Servicios
+                </h2>
+                <button 
+                  onClick={() => setShowAddService(!showAddService)}
+                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              {showAddService && (
+                <Card className="border-indigo-200 dark:border-indigo-900 bg-indigo-50/30">
+                  <form onSubmit={addService} className="space-y-3">
+                    <input 
+                      type="text" 
+                      placeholder="Nombre (ej. Netflix)" 
+                      className="w-full px-3 py-2 rounded-md border border-slate-300 dark:bg-slate-900"
+                      value={newService.name}
+                      onChange={e => setNewService({...newService, name: e.target.value})}
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="Costo Mensual" 
+                      className="w-full px-3 py-2 rounded-md border border-slate-300 dark:bg-slate-900"
+                      value={newService.cost}
+                      onChange={e => setNewService({...newService, cost: e.target.value})}
+                    />
+                    <div className="flex gap-2 pt-2">
+                      <button type="submit" className="flex-1 bg-indigo-600 text-white py-2 rounded-md text-sm font-medium">Guardar</button>
+                      <button type="button" onClick={() => setShowAddService(false)} className="px-4 py-2 border border-slate-300 rounded-md text-sm">Cancelar</button>
+                    </div>
+                  </form>
+                </Card>
+              )}
+
+              <div className="space-y-3">
+                {services.map(s => (
+                  <Card key={s.id} className="relative">
+                    <button 
+                      onClick={() => removeService(s.id)}
+                      className="absolute top-4 right-4 text-slate-400 hover:text-red-500"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                    <h3 className="font-bold text-lg">{s.name}</h3>
+                    <p className="text-indigo-600 font-bold mb-4">${s.cost} / mes</p>
+                    
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Miembros en este servicio:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {members.map(m => {
+                          const isActive = s.memberIds.includes(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => toggleMemberInService(s.id, m.id)}
+                              className={`text-xs px-2 py-1 rounded-full border transition-all ${
+                                isActive 
+                                ? 'bg-indigo-600 border-indigo-600 text-white' 
+                                : 'bg-transparent border-slate-300 text-slate-500'
+                              }`}
+                            >
+                              {m.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {members.length === 0 && <p className="text-xs text-slate-400 italic">No hay miembros registrados.</p>}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </section>
+
+            {/* Manage Members */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Users size={20} /> Miembros
+                </h2>
+                <button 
+                  onClick={() => setShowAddMember(!showAddMember)}
+                  className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                >
+                  <UserPlus size={20} />
+                </button>
+              </div>
+
+              {showAddMember && (
+                <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50/30">
+                  <form onSubmit={addMember} className="space-y-3">
+                    <input 
+                      type="text" 
+                      placeholder="Nombre del miembro" 
+                      className="w-full px-3 py-2 rounded-md border border-slate-300 dark:bg-slate-900"
+                      value={newMember.name}
+                      onChange={e => setNewMember({name: e.target.value})}
+                    />
+                    <div className="flex gap-2 pt-2">
+                      <button type="submit" className="flex-1 bg-emerald-600 text-white py-2 rounded-md text-sm font-medium">Añadir</button>
+                      <button type="button" onClick={() => setShowAddMember(false)} className="px-4 py-2 border border-slate-300 rounded-md text-sm">Cancelar</button>
+                    </div>
+                  </form>
+                </Card>
+              )}
+
+              <div className="space-y-2">
+                {members.map(m => (
+                  <div key={m.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <span className="font-medium">{m.name}</span>
+                    <button 
+                      onClick={() => removeMember(m.id)}
+                      className="text-slate-400 hover:text-red-500"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))}
+                {members.length === 0 && (
+                  <p className="text-center py-8 text-slate-500 italic">Sin miembros. Haz clic en el + para añadir.</p>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+};
+
+export default App;
