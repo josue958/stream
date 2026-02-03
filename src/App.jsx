@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -11,20 +11,14 @@ import {
   UserPlus,
   ArrowRight
 } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 const App = () => {
-  // --- Estado Inicial ---
-  const [services, setServices] = useState([
-    { id: '1', name: 'Netflix', cost: 219, memberIds: ['m1', 'm2'] },
-    { id: '2', name: 'Disney+', cost: 179, memberIds: ['m1'] }
-  ]);
-
-  const [members, setMembers] = useState([
-    { id: 'm1', name: 'Juan Pérez' },
-    { id: 'm2', name: 'María García' }
-  ]);
-
+  // --- Estado ---
+  const [services, setServices] = useState([]);
+  const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // --- Estado de UI ---
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -34,6 +28,34 @@ const App = () => {
   // Forms
   const [newService, setNewService] = useState({ name: '', cost: '' });
   const [newMember, setNewMember] = useState({ name: '' });
+
+  // --- Lógica de Supabase ---
+  const fetchData = async () => {
+    try {
+      const { data: membersData } = await supabase.from('members').select('*').order('created_at');
+      const { data: servicesData } = await supabase.from('services').select('*').order('created_at');
+      const { data: paymentsData } = await supabase.from('payments').select('*');
+
+      if (membersData) setMembers(membersData);
+      if (servicesData) {
+        // Mapear member_ids (snake_case en DB) a memberIds (camelCase en app)
+        const formattedServices = servicesData.map(s => ({
+            ...s,
+            memberIds: s.member_ids || []
+        }));
+        setServices(formattedServices);
+      }
+      if (paymentsData) setPayments(paymentsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // --- Lógica de Cálculos ---
   const currentMonth = new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' });
@@ -47,11 +69,11 @@ const App = () => {
       const memberServices = services.filter(s => s.memberIds.includes(member.id));
       
       memberServices.forEach(s => {
-        totalDue += Number(s.cost) / s.memberIds.length;
+        totalDue += Number(s.cost) / (s.memberIds.length || 1);
       });
 
       const hasPaid = payments.find(p => 
-        p.memberId === member.id && 
+        p.member_id === member.id && 
         p.month === currentMonth
       );
 
@@ -67,66 +89,107 @@ const App = () => {
   }, [services, members, payments, currentMonth]);
 
   // --- Acciones ---
-  const addService = (e) => {
+  const addService = async (e) => {
     e.preventDefault();
     if (!newService.name || !newService.cost) return;
-    setServices([...services, { 
-      id: Date.now().toString(), 
-      ...newService, 
-      memberIds: [] 
-    }]);
-    setNewService({ name: '', cost: '' });
-    setShowAddService(false);
-  };
 
-  const removeService = (id) => {
-    setServices(services.filter(s => s.id !== id));
-  };
+    const { data, error } = await supabase
+        .from('services')
+        .insert([{ name: newService.name, cost: Number(newService.cost), member_ids: [] }])
+        .select();
 
-  const addMember = (e) => {
-    e.preventDefault();
-    if (!newMember.name) return;
-    setMembers([...members, { id: 'm' + Date.now(), name: newMember.name }]);
-    setNewMember({ name: '' });
-    setShowAddMember(false);
-  };
-
-  const removeMember = (id) => {
-    setMembers(members.filter(m => m.id !== id));
-    setServices(services.map(s => ({
-      ...s,
-      memberIds: s.memberIds.filter(mid => mid !== id)
-    })));
-  };
-
-  const toggleMemberInService = (serviceId, memberId) => {
-    setServices(services.map(s => {
-      if (s.id === serviceId) {
-        const exists = s.memberIds.includes(memberId);
-        return {
-          ...s,
-          memberIds: exists 
-            ? s.memberIds.filter(id => id !== memberId)
-            : [...s.memberIds, memberId]
-        };
-      }
-      return s;
-    }));
-  };
-
-  const togglePayment = (memberId) => {
-    const exists = payments.find(p => p.memberId === memberId && p.month === currentMonth);
-    if (exists) {
-      setPayments(payments.filter(p => !(p.memberId === memberId && p.month === currentMonth)));
-    } else {
-      setPayments([...payments, {
-        id: Date.now().toString(),
-        memberId,
-        month: currentMonth,
-        date: new Date().toLocaleDateString('es-MX')
-      }]);
+    if (error) console.error(error);
+    else {
+        setServices([...services, { ...data[0], memberIds: [] }]);
+        setNewService({ name: '', cost: '' });
+        setShowAddService(false);
     }
   };
+
+  const removeService = async (id) => {
+    const { error } = await supabase.from('services').delete().eq('id', id);
+    if (!error) {
+        setServices(services.filter(s => s.id !== id));
+    }
+  };
+
+  const addMember = async (e) => {
+    e.preventDefault();
+    if (!newMember.name) return;
+
+    const { data, error } = await supabase
+        .from('members')
+        .insert([{ name: newMember.name }])
+        .select();
+
+    if (error) console.error(error);
+    else {
+        setMembers([...members, data[0]]);
+        setNewMember({ name: '' });
+        setShowAddMember(false);
+    }
+  };
+
+  const removeMember = async (id) => {
+    const { error } = await supabase.from('members').delete().eq('id', id);
+    if (!error) {
+        setMembers(members.filter(m => m.id !== id));
+        // Recargar servicios para limpiar el ID huerfano si fuera necesario, 
+        // o hacerlo localmente:
+        setServices(services.map(s => ({
+            ...s,
+            memberIds: s.memberIds.filter(mid => mid !== id)
+        })));
+    }
+  };
+
+  const toggleMemberInService = async (serviceId, memberId) => {
+    const service = services.find(s => s.id === serviceId);
+    if (!service) return;
+
+    const exists = service.memberIds.includes(memberId);
+    const newMemberIds = exists 
+        ? service.memberIds.filter(id => id !== memberId)
+        : [...service.memberIds, memberId];
+
+    // Optimistic Update
+    setServices(services.map(s => s.id === serviceId ? { ...s, memberIds: newMemberIds } : s));
+
+    const { error } = await supabase
+        .from('services')
+        .update({ member_ids: newMemberIds })
+        .eq('id', serviceId);
+
+    if (error) {
+        console.error('Error updating service:', error);
+        // Revertir si hay error
+        setServices(services.map(s => s.id === serviceId ? service : s));
+    }
+  };
+
+  const togglePayment = async (memberId) => {
+    const existingPayment = payments.find(p => p.member_id === memberId && p.month === currentMonth);
+
+    if (existingPayment) {
+        // Eliminar pago
+        const { error } = await supabase.from('payments').delete().eq('id', existingPayment.id);
+        if (!error) {
+            setPayments(payments.filter(p => p.id !== existingPayment.id));
+        }
+    } else {
+        // Crear pago
+        const newPayment = {
+            member_id: memberId,
+            month: currentMonth,
+            date: new Date().toLocaleDateString('es-MX')
+        };
+        const { data, error } = await supabase.from('payments').insert([newPayment]).select();
+        if (!error) {
+            setPayments([...payments, data[0]]);
+        }
+    }
+  };
+
 
   // --- Componentes de UI ---
   const Card = ({ children, className = "" }) => (
