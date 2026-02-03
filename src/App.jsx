@@ -496,6 +496,9 @@ const App = () => {
           </div>
         )}
 
+        <p className="text-xs text-slate-400 text-center mt-12 mb-4">
+          Control de Streaming v1.1 - Conectado
+        </p>
       </div>
     </div>
   );
