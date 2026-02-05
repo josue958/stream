@@ -12,7 +12,8 @@ import {
   UserPlus,
   ArrowRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
@@ -34,8 +35,12 @@ const App = () => {
   // --- Estado de UI ---
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAddService, setShowAddService] = useState(false);
-  const [showAddMember, setShowAddMember] = useState(false);
+  const [showAddMember, setShowAddAddMember] = useState(false);
   
+  // --- Filtros de Reportes ---
+  const [reportFilterMember, setReportFilterMember] = useState('all');
+  const [reportFilterYear, setReportFilterYear] = useState(new Date().getFullYear().toString());
+
   // Forms
   const [newService, setNewService] = useState({ name: '', cost: '' });
   const [newMember, setNewMember] = useState({ name: '' });
@@ -48,7 +53,7 @@ const App = () => {
     try {
       const { data: membersData } = await supabase.from('members').select('*').order('created_at');
       const { data: servicesData } = await supabase.from('services').select('*').order('created_at');
-      const { data: paymentsData } = await supabase.from('payments').select('*');
+      const { data: paymentsData } = await supabase.from('payments').select('*').order('date', { ascending: false }); // Sort by date desc
 
       if (membersData) setMembers(membersData);
       if (servicesData) {
@@ -83,6 +88,25 @@ const App = () => {
   const nextMonth = () => {
     setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)));
   };
+
+  // --- Lógica de Reportes ---
+  const uniqueYears = useMemo(() => {
+    const years = new Set([new Date().getFullYear().toString()]);
+    payments.forEach(p => {
+        // Try to extract year from the 'month' string (e.g. "febrero de 2026")
+        const match = p.month.match(/\d{4}/);
+        if (match) years.add(match[0]);
+    });
+    return Array.from(years).sort().reverse();
+  }, [payments]);
+
+  const filteredPayments = useMemo(() => {
+    return payments.filter(p => {
+        const matchesMember = reportFilterMember === 'all' || p.member_id === reportFilterMember;
+        const matchesYear = p.month.includes(reportFilterYear);
+        return matchesMember && matchesYear;
+    });
+  }, [payments, reportFilterMember, reportFilterYear]);
 
   // ... (Stats useMemo logic unchanged, it depends on currentMonth which is now dynamic) ...
   const stats = useMemo(() => {
@@ -255,6 +279,12 @@ const App = () => {
               Resumen
             </button>
             <button 
+              onClick={() => setActiveTab('reports')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'reports' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 hover:bg-slate-100'}`}
+            >
+              Reportes
+            </button>
+            <button 
               onClick={() => setActiveTab('manage')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'manage' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 hover:bg-slate-100'}`}
             >
@@ -263,7 +293,7 @@ const App = () => {
           </div>
         </header>
 
-        {activeTab === 'dashboard' ? (
+        {activeTab === 'dashboard' && (
           <div className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -403,7 +433,79 @@ const App = () => {
               </Card>
             </div>
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'reports' && (
+            <div className="space-y-6">
+                <Card>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                            <FileText size={20} /> Historial de Pagos
+                        </h2>
+                        <div className="flex gap-2">
+                            <select 
+                                value={reportFilterMember} 
+                                onChange={(e) => setReportFilterMember(e.target.value)}
+                                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            >
+                                <option value="all">Todos los miembros</option>
+                                {members.map(m => (
+                                    <option key={m.id} value={m.id}>{m.name}</option>
+                                ))}
+                            </select>
+                            <select 
+                                value={reportFilterYear} 
+                                onChange={(e) => setReportFilterYear(e.target.value)}
+                                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            >
+                                {uniqueYears.map(year => (
+                                    <option key={year} value={year}>{year}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-slate-200 dark:border-slate-700">
+                                    <th className="pb-3 font-medium text-slate-500">Fecha de Registro</th>
+                                    <th className="pb-3 font-medium text-slate-500">Mes Pagado</th>
+                                    <th className="pb-3 font-medium text-slate-500">Miembro</th>
+                                    <th className="pb-3 font-medium text-slate-500 text-right">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {filteredPayments.map(payment => {
+                                    const memberName = members.find(m => m.id === payment.member_id)?.name || 'Desconocido';
+                                    return (
+                                        <tr key={payment.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                                            <td className="py-3 text-slate-600 dark:text-slate-400 font-mono text-sm">{payment.date}</td>
+                                            <td className="py-3 font-medium capitalize">{payment.month}</td>
+                                            <td className="py-3">{memberName}</td>
+                                            <td className="py-3 text-right">
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                    <CheckCircle size={12} /> Pagado
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {filteredPayments.length === 0 && (
+                                    <tr>
+                                        <td colSpan="4" className="py-8 text-center text-slate-500 italic">
+                                            No se encontraron pagos con los filtros seleccionados.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            </div>
+        )}
+
+        {activeTab === 'manage' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Manage Services */}
             <section className="space-y-4">
