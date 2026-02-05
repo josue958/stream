@@ -1,5 +1,4 @@
 // Force Rebuild
-import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -10,7 +9,9 @@ import {
   DollarSign, 
   Calendar,
   UserPlus,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
@@ -23,6 +24,7 @@ const Card = ({ children, className = "" }) => (
 
 const App = () => {
   // --- Estado ---
+  const [currentDate, setCurrentDate] = useState(new Date()); // [NEW] Track selected month
   const [services, setServices] = useState([]);
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -36,6 +38,9 @@ const App = () => {
   // Forms
   const [newService, setNewService] = useState({ name: '', cost: '' });
   const [newMember, setNewMember] = useState({ name: '' });
+
+  // ... (Data fetching logic unchanged) ...
+  // [NOTE: Keeping fetchData and useEffect as is, they are fine]
 
   // --- Lógica de Supabase ---
   const fetchData = async () => {
@@ -66,8 +71,19 @@ const App = () => {
   }, []);
 
   // --- Lógica de Cálculos ---
-  const currentMonth = new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' });
+  // [MODIFIED] Derive string from state
+  const currentMonth = currentDate.toLocaleString('es-MX', { month: 'long', year: 'numeric' });
 
+  // [NEW] Handlers for navigation
+  const prevMonth = () => {
+    setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)));
+  };
+
+  // ... (Stats useMemo logic unchanged, it depends on currentMonth which is now dynamic) ...
   const stats = useMemo(() => {
     const totalCost = services.reduce((acc, s) => acc + Number(s.cost), 0);
     
@@ -96,7 +112,12 @@ const App = () => {
     return { totalCost, memberDebts };
   }, [services, members, payments, currentMonth]);
 
-  // --- Acciones ---
+  // ... (Actions unchanged) ... 
+  
+  // [MODIFIED] togglePayment uses currentMonth, which is correct for backtracking
+
+  // ... (Rest of actions) ...
+
   const addService = async (e) => {
     e.preventDefault();
     if (!newService.name || !newService.cost) return;
@@ -196,7 +217,7 @@ const App = () => {
         const newPayment = {
             member_id: memberId,
             month: currentMonth,
-            date: new Date().toLocaleDateString('es-MX')
+            date: new Date().toLocaleDateString('es-MX') // Payment DATE is always TODAY (audit trail)
         };
         const { data, error } = await supabase.from('payments').insert([newPayment]).select();
         if (!error) {
@@ -213,7 +234,17 @@ const App = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Control de Streaming</h1>
-            <p className="text-slate-500 dark:text-slate-400">Gestiona gastos compartidos y pagos de {currentMonth}</p>
+            <div className="flex items-center gap-2 mt-1">
+                <button onClick={prevMonth} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
+                    <ChevronLeft size={20} className="text-slate-500" />
+                </button>
+                <p className="text-slate-500 dark:text-slate-400 font-medium capitalize min-w-[140px] text-center select-none">
+                    {currentMonth}
+                </p>
+                <button onClick={nextMonth} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
+                    <ChevronRight size={20} className="text-slate-500" />
+                </button>
+            </div>
           </div>
           <div className="flex gap-2">
             <button 
