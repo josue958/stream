@@ -198,14 +198,14 @@ const App = () => {
   };
 
 
-  // --- Componentes de UI ---
-  const Card = ({ children, className = "" }) => (
-    <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 ${className}`}>
-      {children}
-    </div>
-  );
+// --- Componentes de UI ---
+const Card = ({ children, className = "" }) => (
+  <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 ${className}`}>
+    {children}
+  </div>
+);
 
-  return (
+const App = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-5xl mx-auto">
         
