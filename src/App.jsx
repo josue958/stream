@@ -35,7 +35,7 @@ const App = () => {
   // --- Estado de UI ---
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAddService, setShowAddService] = useState(false);
-  const [showAddMember, setShowAddAddMember] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
   
   // --- Filtros de Reportes ---
   const [reportFilterMember, setReportFilterMember] = useState('all');
